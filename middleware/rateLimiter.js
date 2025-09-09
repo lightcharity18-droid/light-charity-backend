@@ -11,6 +11,7 @@ const apiLimiter = rateLimit({
   },
   standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
   legacyHeaders: false, // Disable the `X-RateLimit-*` headers
+  trustProxy: true, // Trust proxy for production deployments
   handler: (req, res) => {
     logger.warn('Rate limit exceeded', {
       ip: req.ip,
@@ -36,6 +37,7 @@ const authLimiter = rateLimit({
   },
   standardHeaders: true,
   legacyHeaders: false,
+  trustProxy: true, // Trust proxy for production deployments
   skipSuccessfulRequests: true, // Don't count successful requests
   handler: (req, res) => {
     logger.warn('Auth rate limit exceeded', {
@@ -62,6 +64,7 @@ const messageLimiter = rateLimit({
   },
   standardHeaders: true,
   legacyHeaders: false,
+  trustProxy: true, // Trust proxy for production deployments
   handler: (req, res) => {
     logger.warn('Message rate limit exceeded', {
       ip: req.ip,
@@ -87,6 +90,7 @@ const wsConnectionLimiter = rateLimit({
   },
   standardHeaders: true,
   legacyHeaders: false,
+  trustProxy: true, // Trust proxy for production deployments
   handler: (req, res) => {
     logger.warn('WebSocket connection rate limit exceeded', {
       ip: req.ip,
