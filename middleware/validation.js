@@ -233,6 +233,83 @@ const validateRefreshToken = [
     .withMessage('Refresh token is required')
 ];
 
+// Community validation
+const validateCommunityCreation = [
+  body('name')
+    .isLength({ min: 3, max: 100 })
+    .withMessage('Community name must be between 3 and 100 characters')
+    .trim(),
+  body('description')
+    .isLength({ min: 10, max: 500 })
+    .withMessage('Description must be between 10 and 500 characters')
+    .trim(),
+  body('category')
+    .isIn(['blood_donation', 'health_awareness', 'volunteer', 'general', 'emergency'])
+    .withMessage('Invalid category'),
+  body('type')
+    .optional()
+    .isIn(['public', 'private'])
+    .withMessage('Type must be either public or private'),
+  body('tags')
+    .optional()
+    .isArray()
+    .withMessage('Tags must be an array')
+];
+
+const validateCommunityUpdate = [
+  body('name')
+    .optional()
+    .isLength({ min: 3, max: 100 })
+    .withMessage('Community name must be between 3 and 100 characters')
+    .trim(),
+  body('description')
+    .optional()
+    .isLength({ min: 10, max: 500 })
+    .withMessage('Description must be between 10 and 500 characters')
+    .trim(),
+  body('category')
+    .optional()
+    .isIn(['blood_donation', 'health_awareness', 'volunteer', 'general', 'emergency'])
+    .withMessage('Invalid category'),
+  body('type')
+    .optional()
+    .isIn(['public', 'private'])
+    .withMessage('Type must be either public or private'),
+  body('tags')
+    .optional()
+    .isArray()
+    .withMessage('Tags must be an array')
+];
+
+// Message validation
+const validateMessageSend = [
+  body('content')
+    .isLength({ min: 1, max: 2000 })
+    .withMessage('Message content must be between 1 and 2000 characters')
+    .trim(),
+  body('messageType')
+    .optional()
+    .isIn(['text', 'image', 'file'])
+    .withMessage('Invalid message type'),
+  body('replyTo')
+    .optional()
+    .isMongoId()
+    .withMessage('Reply to must be a valid message ID')
+];
+
+const validateMessageEdit = [
+  body('content')
+    .isLength({ min: 1, max: 2000 })
+    .withMessage('Message content must be between 1 and 2000 characters')
+    .trim()
+];
+
+const validateReaction = [
+  body('emoji')
+    .isIn(['👍', '❤️', '😊', '😮', '😢', '😡'])
+    .withMessage('Invalid emoji reaction')
+];
+
 module.exports = {
   validateLogin,
   validateSignup,
@@ -242,5 +319,10 @@ module.exports = {
   validateChangePassword,
   validateForgotPassword,
   validateResetPassword,
-  validateRefreshToken
+  validateRefreshToken,
+  validateCommunityCreation,
+  validateCommunityUpdate,
+  validateMessageSend,
+  validateMessageEdit,
+  validateReaction
 }; 
