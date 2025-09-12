@@ -20,7 +20,9 @@ const {
   deleteMessage,
   addReaction,
   removeReaction,
-  getRecentMessages
+  getRecentMessages,
+  markMessagesAsRead,
+  getUnreadMessageCounts
 } = require('../controllers/communityMessage.controller');
 
 // Import middleware
@@ -56,5 +58,10 @@ router.put('/messages/:messageId', authenticate, validateMessageEditContent, val
 router.delete('/messages/:messageId', authenticate, deleteMessage);
 router.post('/messages/:messageId/react', authenticate, validateMessageReaction, validateReaction, addReaction);
 router.delete('/messages/:messageId/react', authenticate, removeReaction);
+
+// Message reading and notification routes
+router.post('/:communityId/messages/mark-read', authenticate, markMessagesAsRead);
+router.get('/messages/unread-counts', authenticate, getUnreadMessageCounts);
+router.get('/messages/recent', authenticate, getRecentMessages);
 
 module.exports = router;

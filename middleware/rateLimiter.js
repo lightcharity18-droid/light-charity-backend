@@ -1,13 +1,13 @@
 const rateLimit = require('express-rate-limit');
 const { logger } = require('../services/logger.service');
 
-// General API rate limiter
+// General API rate limiter - more lenient for development
 const apiLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // limit each IP to 100 requests per windowMs
+  windowMs: 1 * 60 * 1000, // 1 minute (shorter window)
+  max: process.env.NODE_ENV === 'production' ? 60 : 200, // More requests allowed, especially in development
   message: {
     error: 'Too many requests from this IP, please try again later.',
-    retryAfter: Math.ceil(15 * 60) // 15 minutes in seconds
+    retryAfter: 60 // 1 minute in seconds
   },
   standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
   legacyHeaders: false, // Disable the `X-RateLimit-*` headers
@@ -22,7 +22,7 @@ const apiLimiter = rateLimit({
     
     res.status(429).json({
       error: 'Too many requests from this IP, please try again later.',
-      retryAfter: Math.ceil(15 * 60)
+      retryAfter: 60
     });
   }
 });
@@ -54,10 +54,10 @@ const authLimiter = rateLimit({
   }
 });
 
-// Message sending rate limiter
+// Message sending rate limiter - more lenient for development
 const messageLimiter = rateLimit({
   windowMs: 1 * 60 * 1000, // 1 minute
-  max: 30, // limit each IP to 30 messages per minute
+  max: process.env.NODE_ENV === 'production' ? 30 : 100, // More requests allowed in development
   message: {
     error: 'Too many messages sent, please slow down.',
     retryAfter: 60

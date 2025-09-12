@@ -10,6 +10,7 @@ router.get('/:id', donationCenterController.getCenterById);
 // Google Places API routes
 router.get('/places/search', donationCenterController.searchPlaces);
 router.get('/places/details', donationCenterController.getPlaceDetails);
+router.post('/places/autocomplete', donationCenterController.autocompletePlaces);
 
 // Route calculation routes
 router.post('/routes/calculate', donationCenterController.calculateRoute);

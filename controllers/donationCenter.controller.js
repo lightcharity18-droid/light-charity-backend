@@ -1,7 +1,7 @@
 const DonationCenter = require('../models/donationCenter.model');
 const axios = require('axios');
 
-// Google Places API endpoints
+// Google Places API (New) endpoints
 exports.searchPlaces = async (req, res) => {
   try {
     const { location, radius, type, keyword, query } = req.query;
@@ -14,23 +14,104 @@ exports.searchPlaces = async (req, res) => {
       });
     }
 
-    let url;
-    let params;
+    let response;
 
     if (query) {
-      // Text search
-      url = 'https://maps.googleapis.com/maps/api/place/textsearch/json';
-      params = { query, key: apiKey };
-    } else {
-      // Nearby search
-      url = 'https://maps.googleapis.com/maps/api/place/nearbysearch/json';
-      params = { location, radius, type, keyword, key: apiKey };
-    }
+      // Text search using Places API (New)
+      const url = 'https://places.googleapis.com/v1/places:searchText';
+      const requestBody = {
+        textQuery: query,
+        maxResultCount: 20,
+        languageCode: 'en'
+        // Removed regionCode to support global locations including India
+      };
 
-    const response = await axios.get(url, { params });
-    res.json(response.data);
+      response = await axios.post(url, requestBody, {
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Goog-Api-Key': apiKey,
+          'X-Goog-FieldMask': 'places.displayName,places.formattedAddress,places.location,places.types,places.rating,places.userRatingCount,places.businessStatus,places.id'
+        }
+      });
+
+      // Transform response to match legacy format
+      const transformedResults = response.data.places?.map(place => ({
+        place_id: place.id,
+        name: place.displayName?.text || '',
+        formatted_address: place.formattedAddress,
+        geometry: {
+          location: {
+            lat: place.location?.latitude || 0,
+            lng: place.location?.longitude || 0
+          }
+        },
+        types: place.types || [],
+        rating: place.rating || 0,
+        user_ratings_total: place.userRatingCount || 0,
+        business_status: place.businessStatus || 'OPERATIONAL'
+      })) || [];
+
+      res.json({
+        results: transformedResults,
+        status: 'OK'
+      });
+    } else {
+      // Nearby search using Places API (New)
+      const url = 'https://places.googleapis.com/v1/places:searchNearby';
+      const requestBody = {
+        locationRestriction: {
+          circle: {
+            center: {
+              latitude: parseFloat(location.split(',')[0]),
+              longitude: parseFloat(location.split(',')[1])
+            },
+            radius: parseFloat(radius)
+          }
+        },
+        includedTypes: [type || 'hospital'],
+        maxResultCount: 20,
+        languageCode: 'en'
+      };
+
+      response = await axios.post(url, requestBody, {
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Goog-Api-Key': apiKey,
+          'X-Goog-FieldMask': 'places.displayName,places.formattedAddress,places.location,places.types,places.rating,places.userRatingCount,places.businessStatus,places.id'
+        }
+      });
+
+      // Transform response to match legacy format
+      const transformedResults = response.data.places?.map(place => ({
+        place_id: place.id,
+        name: place.displayName?.text || '',
+        formatted_address: place.formattedAddress,
+        geometry: {
+          location: {
+            lat: place.location?.latitude || 0,
+            lng: place.location?.longitude || 0
+          }
+        },
+        types: place.types || [],
+        rating: place.rating || 0,
+        user_ratings_total: place.userRatingCount || 0,
+        business_status: place.businessStatus || 'OPERATIONAL'
+      })) || [];
+
+      res.json({
+        results: transformedResults,
+        status: 'OK'
+      });
+    }
   } catch (error) {
     console.error('Error searching places:', error);
+    
+    // Enhanced error handling
+    if (error.response) {
+      console.error('API Error Status:', error.response.status);
+      console.error('API Error Data:', error.response.data);
+    }
+    
     res.status(500).json({
       success: false,
       message: 'Error searching places',
@@ -51,22 +132,179 @@ exports.getPlaceDetails = async (req, res) => {
       });
     }
 
-    const url = 'https://maps.googleapis.com/maps/api/place/details/json';
+    // Validate place_id
+    if (!place_id) {
+      return res.status(400).json({
+        success: false,
+        message: 'place_id parameter is required'
+      });
+    }
+
+    console.log('Fetching place details for:', place_id);
+
+    // Use Places API (New) for place details
+    const url = `https://places.googleapis.com/v1/places/${place_id}`;
     const response = await axios.get(url, {
-      params: {
-        place_id,
-        fields,
-        key: apiKey
+      headers: {
+        'X-Goog-Api-Key': apiKey,
+        'X-Goog-FieldMask': 'id,displayName,formattedAddress,location,types,rating,userRatingCount,businessStatus,formattedPhoneNumber,websiteUri,regularOpeningHours'
       }
     });
 
-    res.json(response.data);
+    // Transform response to match legacy format
+    const place = response.data;
+    const transformedResult = {
+      place_id: place.id,
+      name: place.displayName?.text || '',
+      formatted_address: place.formattedAddress,
+      formatted_phone_number: place.formattedPhoneNumber,
+      website: place.websiteUri,
+      geometry: {
+        location: {
+          lat: place.location?.latitude || 0,
+          lng: place.location?.longitude || 0
+        }
+      },
+      types: place.types || [],
+      rating: place.rating || 0,
+      user_ratings_total: place.userRatingCount || 0,
+      business_status: place.businessStatus || 'OPERATIONAL',
+      opening_hours: place.regularOpeningHours ? {
+        open_now: true, // This would need more complex logic to determine
+        weekday_text: place.regularOpeningHours.weekdayDescriptions || []
+      } : null
+    };
+
+    res.json({
+      result: transformedResult,
+      status: 'OK'
+    });
   } catch (error) {
     console.error('Error getting place details:', error);
+    
+    // Enhanced error handling with specific error types
+    if (error.response) {
+      console.error('API Error Status:', error.response.status);
+      console.error('API Error Data:', error.response.data);
+      
+      if (error.response.status === 400) {
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid place_id format or missing required parameters',
+          error: error.response.data?.error?.message || error.message
+        });
+      }
+      
+      if (error.response.status === 403) {
+        return res.status(403).json({
+          success: false,
+          message: 'Google Places API access denied. Check your API key and permissions.',
+          error: error.response.data?.error?.message || error.message
+        });
+      }
+      
+      if (error.response.status === 404) {
+        return res.status(404).json({
+          success: false,
+          message: 'Place not found with the provided place_id',
+          error: error.response.data?.error?.message || error.message
+        });
+      }
+    }
+    
     res.status(500).json({
       success: false,
       message: 'Error getting place details',
       error: error.message
+    });
+  }
+};
+
+// Places API (New) autocomplete endpoint
+exports.autocompletePlaces = async (req, res) => {
+  try {
+    const { input, types, language = 'en', type } = req.body;
+    const apiKey = process.env.GOOGLE_MAPS_API_KEY;
+
+    if (!apiKey) {
+      return res.status(500).json({
+        success: false,
+        message: 'Google Maps API key not configured'
+      });
+    }
+
+    if (!input || input.length < 2) {
+      return res.json({
+        success: true,
+        predictions: []
+      });
+    }
+
+    // Use the new Places API (New) autocomplete endpoint
+    const url = 'https://places.googleapis.com/v1/places:autocomplete';
+    
+    // Map types correctly for Places API (New)
+    let includedPrimaryTypes = [];
+    if (types) {
+      if (types.includes('(cities)')) {
+        // Include more comprehensive city types to support global cities including Indian cities
+        includedPrimaryTypes = ['locality', 'administrative_area_level_1', 'administrative_area_level_2', 'sublocality'];
+      } else if (types.includes('country')) {
+        includedPrimaryTypes = ['country'];
+      } else {
+        includedPrimaryTypes = ['establishment'];
+      }
+    }
+
+    const requestBody = {
+      input,
+      ...(includedPrimaryTypes.length > 0 && { includedPrimaryTypes }),
+      languageCode: language
+      // Removed regionCode to support global locations including India
+    };
+
+    const response = await axios.post(url, requestBody, {
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Goog-Api-Key': apiKey,
+        'X-Goog-FieldMask': 'suggestions.placePrediction.placeId,suggestions.placePrediction.text,suggestions.placePrediction.structuredFormat'
+      }
+    });
+
+    // Transform the response to match the legacy format for compatibility
+    const predictions = response.data.suggestions?.map((suggestion) => ({
+      place_id: suggestion.placePrediction?.placeId || `manual_${Date.now()}_${Math.random()}`,
+      description: suggestion.placePrediction?.text?.text || suggestion.placePrediction?.text || input,
+      structured_formatting: {
+        main_text: suggestion.placePrediction?.structuredFormat?.mainText?.text || 
+                   suggestion.placePrediction?.text?.text || 
+                   input,
+        secondary_text: suggestion.placePrediction?.structuredFormat?.secondaryText?.text || ''
+      }
+    })) || [];
+
+    res.json({
+      success: true,
+      predictions
+    });
+
+  } catch (error) {
+    console.error('Error in autocomplete API:', error);
+    
+    // Fallback to a simple prediction format if the new API fails
+    const { input, type } = req.body;
+    const simplePredictions = [{
+      place_id: `manual_${Date.now()}`,
+      description: input,
+      structured_formatting: {
+        main_text: input,
+        secondary_text: type === 'city' ? 'City' : 'Country'
+      }
+    }];
+    
+    res.json({
+      success: true,
+      predictions: simplePredictions
     });
   }
 };

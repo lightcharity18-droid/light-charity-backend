@@ -36,6 +36,7 @@ class WebSocketService {
 
     // Authentication middleware with rate limiting
     this.io.use(async (socket, next) => {
+      let token = null;
       try {
         // Check connection limits
         if (this.connectionCount >= this.maxConnections) {
@@ -43,7 +44,7 @@ class WebSocketService {
           return next(new Error('Server overloaded'));
         }
 
-        const token = socket.handshake.auth.token || socket.handshake.query.token;
+        token = socket.handshake.auth.token || socket.handshake.query.token;
         if (!token) {
           console.log('No token provided');
           return next(new Error('Authentication error'));

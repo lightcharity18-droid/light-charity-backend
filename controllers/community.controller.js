@@ -16,7 +16,7 @@ const createCommunity = async (req, res) => {
       });
     }
 
-    const { name, description, type, category, tags } = req.body;
+    const { name, description, type, category, tags, city, country } = req.body;
     const userId = req.user.id;
 
     // Check if community with same name already exists
@@ -36,6 +36,8 @@ const createCommunity = async (req, res) => {
       category,
       createdBy: userId,
       tags: tags || [],
+      city: city ? city.trim() : null,
+      country: country ? country.trim() : null,
       members: [{
         user: userId,
         role: 'admin',
@@ -84,6 +86,8 @@ const getCommunities = async (req, res) => {
       category, 
       type, 
       search,
+      city,
+      country,
       sortBy = 'createdAt',
       sortOrder = 'desc'
     } = req.query;
@@ -101,11 +105,21 @@ const getCommunities = async (req, res) => {
       query.type = type;
     }
 
+    if (city) {
+      query.city = { $regex: city, $options: 'i' };
+    }
+
+    if (country) {
+      query.country = { $regex: country, $options: 'i' };
+    }
+
     if (search) {
       query.$or = [
         { name: { $regex: search, $options: 'i' } },
         { description: { $regex: search, $options: 'i' } },
-        { tags: { $in: [new RegExp(search, 'i')] } }
+        { tags: { $in: [new RegExp(search, 'i')] } },
+        { city: { $regex: search, $options: 'i' } },
+        { country: { $regex: search, $options: 'i' } }
       ];
     }
 
@@ -369,7 +383,7 @@ const updateCommunity = async (req, res) => {
   try {
     const { id } = req.params;
     const userId = req.user.id;
-    const { name, description, type, category, tags } = req.body;
+    const { name, description, type, category, tags, city, country } = req.body;
 
     const community = await Community.findOne({ _id: id, isActive: true });
     
@@ -395,6 +409,8 @@ const updateCommunity = async (req, res) => {
     if (type) community.type = type;
     if (category) community.category = category;
     if (tags) community.tags = tags;
+    if (city !== undefined) community.city = city ? city.trim() : null;
+    if (country !== undefined) community.country = country ? country.trim() : null;
 
     await community.save();
 

@@ -433,6 +433,123 @@ const getRecentMessages = async (req, res) => {
   }
 };
 
+// Mark messages as read for a community
+const markMessagesAsRead = async (req, res) => {
+  try {
+    const { communityId } = req.params;
+    const userId = req.user.id;
+
+    // Check if community exists and user is a member
+    const community = await Community.findOne({ _id: communityId, isActive: true });
+    
+    if (!community) {
+      return res.status(404).json({
+        success: false,
+        message: 'Community not found'
+      });
+    }
+
+    if (!community.isMember(userId)) {
+      return res.status(403).json({
+        success: false,
+        message: 'You must be a member of this community'
+      });
+    }
+
+    // Mark all unread messages as read for this user in this community
+    await CommunityMessage.updateMany(
+      {
+        community: communityId,
+        isDeleted: false,
+        'readBy.user': { $ne: userId }
+      },
+      {
+        $push: {
+          readBy: {
+            user: userId,
+            readAt: new Date()
+          }
+        }
+      }
+    );
+
+    res.status(200).json({
+      success: true,
+      message: 'Messages marked as read'
+    });
+
+  } catch (error) {
+    console.error('Error marking messages as read:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error'
+    });
+  }
+};
+
+// Get unread message counts for all user's communities
+const getUnreadMessageCounts = async (req, res) => {
+  try {
+    const userId = req.user.id;
+
+    // Get user's communities
+    const userCommunities = await Community.find({
+      'members.user': userId,
+      isActive: true
+    }).select('_id name');
+
+    const communityIds = userCommunities.map(c => c._id);
+
+    // Get unread message counts for each community
+    const unreadCounts = await CommunityMessage.aggregate([
+      {
+        $match: {
+          community: { $in: communityIds },
+          isDeleted: false,
+          'readBy.user': { $ne: userId }
+        }
+      },
+      {
+        $group: {
+          _id: '$community',
+          unreadCount: { $sum: 1 }
+        }
+      }
+    ]);
+
+    // Create a map of community ID to unread count
+    const unreadCountMap = {};
+    unreadCounts.forEach(item => {
+      unreadCountMap[item._id.toString()] = item.unreadCount;
+    });
+
+    // Format response with community info and unread counts
+    const result = userCommunities.map(community => ({
+      communityId: community._id,
+      communityName: community.name,
+      unreadCount: unreadCountMap[community._id.toString()] || 0
+    }));
+
+    // Calculate total unread messages
+    const totalUnread = result.reduce((sum, item) => sum + item.unreadCount, 0);
+
+    res.status(200).json({
+      success: true,
+      data: {
+        communities: result,
+        totalUnread
+      }
+    });
+
+  } catch (error) {
+    console.error('Error fetching unread message counts:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error'
+    });
+  }
+};
+
 module.exports = {
   sendMessage,
   getCommunityMessages,
@@ -440,5 +557,7 @@ module.exports = {
   deleteMessage,
   addReaction,
   removeReaction,
-  getRecentMessages
+  getRecentMessages,
+  markMessagesAsRead,
+  getUnreadMessageCounts
 };

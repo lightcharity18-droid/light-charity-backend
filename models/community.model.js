@@ -98,6 +98,19 @@ const communitySchema = new mongoose.Schema({
     trim: true
   }],
   
+  // Location fields
+  city: {
+    type: String,
+    trim: true,
+    default: null
+  },
+  
+  country: {
+    type: String,
+    trim: true,
+    default: null
+  },
+  
   isActive: {
     type: Boolean,
     default: true
@@ -113,6 +126,8 @@ communitySchema.index({ type: 1 });
 communitySchema.index({ createdBy: 1 });
 communitySchema.index({ 'members.user': 1 });
 communitySchema.index({ tags: 1 });
+communitySchema.index({ city: 1 });
+communitySchema.index({ country: 1 });
 communitySchema.index({ isActive: 1 });
 
 // Virtual for member count
