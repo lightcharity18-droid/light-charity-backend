@@ -105,13 +105,6 @@ exports.searchPlaces = async (req, res) => {
     }
   } catch (error) {
     console.error('Error searching places:', error);
-    
-    // Enhanced error handling
-    if (error.response) {
-      console.error('API Error Status:', error.response.status);
-      console.error('API Error Data:', error.response.data);
-    }
-    
     res.status(500).json({
       success: false,
       message: 'Error searching places',
@@ -131,16 +124,6 @@ exports.getPlaceDetails = async (req, res) => {
         message: 'Google Maps API key not configured'
       });
     }
-
-    // Validate place_id
-    if (!place_id) {
-      return res.status(400).json({
-        success: false,
-        message: 'place_id parameter is required'
-      });
-    }
-
-    console.log('Fetching place details for:', place_id);
 
     // Use Places API (New) for place details
     const url = `https://places.googleapis.com/v1/places/${place_id}`;
@@ -181,37 +164,6 @@ exports.getPlaceDetails = async (req, res) => {
     });
   } catch (error) {
     console.error('Error getting place details:', error);
-    
-    // Enhanced error handling with specific error types
-    if (error.response) {
-      console.error('API Error Status:', error.response.status);
-      console.error('API Error Data:', error.response.data);
-      
-      if (error.response.status === 400) {
-        return res.status(400).json({
-          success: false,
-          message: 'Invalid place_id format or missing required parameters',
-          error: error.response.data?.error?.message || error.message
-        });
-      }
-      
-      if (error.response.status === 403) {
-        return res.status(403).json({
-          success: false,
-          message: 'Google Places API access denied. Check your API key and permissions.',
-          error: error.response.data?.error?.message || error.message
-        });
-      }
-      
-      if (error.response.status === 404) {
-        return res.status(404).json({
-          success: false,
-          message: 'Place not found with the provided place_id',
-          error: error.response.data?.error?.message || error.message
-        });
-      }
-    }
-    
     res.status(500).json({
       success: false,
       message: 'Error getting place details',
