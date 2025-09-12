@@ -30,7 +30,7 @@ exports.searchPlaces = async (req, res) => {
         headers: {
           'Content-Type': 'application/json',
           'X-Goog-Api-Key': apiKey,
-          'X-Goog-FieldMask': 'places.displayName,places.formattedAddress,places.location,places.types,places.rating,places.userRatingCount,places.businessStatus,places.id'
+          'X-Goog-FieldMask': 'places.displayName,places.formattedAddress,places.location.latitude,places.location.longitude,places.types,places.rating,places.userRatingCount,places.businessStatus,places.id'
         }
       });
 
@@ -77,7 +77,7 @@ exports.searchPlaces = async (req, res) => {
         headers: {
           'Content-Type': 'application/json',
           'X-Goog-Api-Key': apiKey,
-          'X-Goog-FieldMask': 'places.displayName,places.formattedAddress,places.location,places.types,places.rating,places.userRatingCount,places.businessStatus,places.id'
+          'X-Goog-FieldMask': 'places.displayName,places.formattedAddress,places.location.latitude,places.location.longitude,places.types,places.rating,places.userRatingCount,places.businessStatus,places.id'
         }
       });
 
@@ -130,7 +130,7 @@ exports.getPlaceDetails = async (req, res) => {
     const response = await axios.get(url, {
       headers: {
         'X-Goog-Api-Key': apiKey,
-        'X-Goog-FieldMask': 'id,displayName,formattedAddress,location,types,rating,userRatingCount,businessStatus,formattedPhoneNumber,websiteUri,regularOpeningHours'
+        'X-Goog-FieldMask': 'id,displayName,formattedAddress,location.latitude,location.longitude,types,rating,userRatingCount,businessStatus,formattedPhoneNumber,websiteUri,regularOpeningHours'
       }
     });
 
