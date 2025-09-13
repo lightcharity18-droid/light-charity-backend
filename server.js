@@ -76,6 +76,7 @@ const messageRoutes = require('./routes/message.routes');
 const donationRoutes = require('./routes/donation.routes');
 const donationCenterRoutes = require('./routes/donationCenter.routes');
 const communityRoutes = require('./routes/community.routes');
+const organDonationRoutes = require('./routes/organDonation.routes');
 
 app.use('/api/blogs', blogRoutes);
 app.use('/api/news', newsRoutes);
@@ -86,6 +87,7 @@ app.use('/api/messages', messageRoutes);
 app.use('/api/donations', donationRoutes);
 app.use('/api/donation-centers', donationCenterRoutes);
 app.use('/api/communities', messageLimiter, communityRoutes); // Apply message rate limiting to community routes
+app.use('/api/organ-donations', organDonationRoutes);
 
 // Basic route for testing
 app.get('/', (req, res) => {
