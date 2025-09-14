@@ -9,7 +9,7 @@ services:
       - key: NODE_ENV
         value: production
       - key: PORT
-        value: 10000
+        value: 8080
       - key: MONGODB_URI
         sync: false
       - key: JWT_SECRET
@@ -19,6 +19,8 @@ services:
       - key: RESEND_API_KEY
         sync: false
       - key: FRONTEND_URL
+        sync: false
+      - key: GROQ_API_KEY
         sync: false
       - key: REDIS_URL
         sync: false

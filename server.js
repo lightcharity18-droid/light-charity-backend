@@ -128,7 +128,7 @@ const server = http.createServer(app);
 // Initialize Socket.IO service
 webSocketService.initialize(server);
 
-server.listen(PORT, () => {
+server.listen(PORT, '0.0.0.0', () => {
     console.log(`Server is running on port ${PORT}`);
     console.log(`Socket.IO server available at http://localhost:${PORT}/socket.io/`);
 }); 
