@@ -28,7 +28,7 @@ if (process.env.NODE_ENV === 'production') {
 const corsOptions = {
     origin: [
         'http://localhost:3000',
-        'https://light-charity.netlify.app', // Netlify URL (if you have one)
+        'http://localhost:3001',
         process.env.FRONTEND_URL, // Vercel URL from environment
         // Add any additional frontend URLs here
     ].filter(Boolean), // Remove any undefined values
@@ -77,6 +77,7 @@ const donationRoutes = require('./routes/donation.routes');
 const donationCenterRoutes = require('./routes/donationCenter.routes');
 const communityRoutes = require('./routes/community.routes');
 const organDonationRoutes = require('./routes/organDonation.routes');
+const adminRoutes = require('./routes/admin.routes');
 
 app.use('/api/blogs', blogRoutes);
 app.use('/api/news', newsRoutes);
@@ -88,6 +89,7 @@ app.use('/api/donations', donationRoutes);
 app.use('/api/donation-centers', donationCenterRoutes);
 app.use('/api/communities', messageLimiter, communityRoutes); // Apply message rate limiting to community routes
 app.use('/api/organ-donations', organDonationRoutes);
+app.use('/api/admin', adminRoutes); // Admin routes with built-in authentication
 
 // Basic route for testing
 app.get('/', (req, res) => {
