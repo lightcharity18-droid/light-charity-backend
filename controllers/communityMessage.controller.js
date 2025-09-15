@@ -146,10 +146,36 @@ const getCommunityMessages = async (req, res) => {
 
     // If loading recent messages (initial load), get the latest messages
     if (loadRecent === 'true') {
-      messages = await CommunityMessage.getRecentCommunityMessages(
-        communityId, 
-        parseInt(limit)
-      );
+      // Check if we should load all messages or just recent ones
+      const loadAll = req.query.loadAll === 'true';
+      
+      if (loadAll) {
+        // Check if community has too many messages (more than 1000)
+        if (total > 1000) {
+          // For very large communities, load recent messages and enable pagination
+          messages = await CommunityMessage.getRecentCommunityMessages(
+            communityId, 
+            100 // Load more recent messages for large communities
+          );
+          // Keep hasMoreMessages true for infinite scroll
+        } else {
+          // Load all messages for smaller communities
+          messages = await CommunityMessage.find({ 
+            community: communityId, 
+            isDeleted: false 
+          })
+          .populate('sender', 'firstName lastName name userType')
+          .populate('replyTo', 'content sender')
+          .sort({ createdAt: 1 }) // Sort chronologically (oldest first)
+          .exec();
+        }
+      } else {
+        // Load recent messages only
+        messages = await CommunityMessage.getRecentCommunityMessages(
+          communityId, 
+          parseInt(limit)
+        );
+      }
       
       res.status(200).json({
         success: true,
@@ -160,7 +186,9 @@ const getCommunityMessages = async (req, res) => {
             totalPages: Math.ceil(total / parseInt(limit)),
             totalItems: total,
             itemsPerPage: parseInt(limit),
-            isRecentLoad: true
+            isRecentLoad: true,
+            loadAll: loadAll,
+            hasMoreMessages: total > 1000 && messages.length < total // Enable infinite scroll for large communities
           }
         }
       });
