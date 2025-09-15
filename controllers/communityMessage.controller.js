@@ -118,7 +118,7 @@ const sendMessage = async (req, res) => {
 const getCommunityMessages = async (req, res) => {
   try {
     const { communityId } = req.params;
-    const { page = 1, limit = 50 } = req.query;
+    const { page = 1, limit = 50, loadRecent = 'false' } = req.query;
     const userId = req.user.id;
 
     // Check if community exists and user is a member
@@ -138,33 +138,57 @@ const getCommunityMessages = async (req, res) => {
       });
     }
 
-    // Get messages with pagination
-    const messages = await CommunityMessage.getCommunityMessages(
-      communityId, 
-      parseInt(page), 
-      parseInt(limit)
-    );
-
-    // Reverse to show oldest first (since we sorted by createdAt desc for pagination)
-    const orderedMessages = messages.reverse();
-
-    const total = await CommunityMessage.countDocuments({
+    let messages;
+    let total = await CommunityMessage.countDocuments({
       community: communityId,
       isDeleted: false
     });
 
-    res.status(200).json({
-      success: true,
-      data: {
-        messages: orderedMessages,
-        pagination: {
-          currentPage: parseInt(page),
-          totalPages: Math.ceil(total / parseInt(limit)),
-          totalItems: total,
-          itemsPerPage: parseInt(limit)
+    // If loading recent messages (initial load), get the latest messages
+    if (loadRecent === 'true') {
+      messages = await CommunityMessage.getRecentCommunityMessages(
+        communityId, 
+        parseInt(limit)
+      );
+      
+      res.status(200).json({
+        success: true,
+        data: {
+          messages,
+          pagination: {
+            currentPage: 1,
+            totalPages: Math.ceil(total / parseInt(limit)),
+            totalItems: total,
+            itemsPerPage: parseInt(limit),
+            isRecentLoad: true
+          }
         }
-      }
-    });
+      });
+    } else {
+      // For pagination (loading older messages), use the original method
+      messages = await CommunityMessage.getCommunityMessages(
+        communityId, 
+        parseInt(page), 
+        parseInt(limit)
+      );
+
+      // Reverse to show oldest first (since we sorted by createdAt desc for pagination)
+      const orderedMessages = messages.reverse();
+
+      res.status(200).json({
+        success: true,
+        data: {
+          messages: orderedMessages,
+          pagination: {
+            currentPage: parseInt(page),
+            totalPages: Math.ceil(total / parseInt(limit)),
+            totalItems: total,
+            itemsPerPage: parseInt(limit),
+            isRecentLoad: false
+          }
+        }
+      });
+    }
 
   } catch (error) {
     console.error('Error fetching messages:', error);

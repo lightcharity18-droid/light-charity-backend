@@ -182,6 +182,20 @@ communityMessageSchema.statics.getCommunityMessages = function(communityId, page
   .exec();
 };
 
+// Static method to get recent messages for a community (for initial load)
+communityMessageSchema.statics.getRecentCommunityMessages = function(communityId, limit = 50) {
+  return this.find({ 
+    community: communityId, 
+    isDeleted: false 
+  })
+  .populate('sender', 'firstName lastName name userType')
+  .populate('replyTo', 'content sender')
+  .sort({ createdAt: -1 })
+  .limit(limit)
+  .exec()
+  .then(messages => messages.reverse()); // Return in chronological order (oldest first)
+};
+
 const CommunityMessage = mongoose.model('CommunityMessage', communityMessageSchema);
 
 module.exports = CommunityMessage;
