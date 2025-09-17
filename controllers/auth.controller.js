@@ -129,6 +129,15 @@ const login = async (req, res) => {
       });
     }
 
+    // Check if user signed up with Google OAuth (no password available)
+    if (user.authProvider === 'google' || !user.password) {
+      return res.status(401).json({
+        success: false,
+        message: 'This account was created with Google. Please use "Sign in with Google" instead.',
+        authProvider: 'google'
+      });
+    }
+
     // Verify password
     const isPasswordValid = await user.comparePassword(password);
     if (!isPasswordValid) {
@@ -291,7 +300,27 @@ const changePassword = async (req, res) => {
       });
     }
 
-    // Verify current password
+    // If user has no password (Google OAuth only), allow setting password without current password
+    if (!user.password) {
+      if (currentPassword) {
+        return res.status(400).json({
+          success: false,
+          message: 'No current password exists. Please leave current password empty to set a new password.'
+        });
+      }
+      
+      // Set new password and update auth provider to mixed
+      user.password = newPassword;
+      user.authProvider = user.authProvider === 'google' ? 'mixed' : 'local';
+      await user.save();
+
+      return res.status(200).json({
+        success: true,
+        message: 'Password set successfully. You can now login with email and password.'
+      });
+    }
+
+    // Verify current password for existing password users
     const isCurrentPasswordValid = await user.comparePassword(currentPassword);
     if (!isCurrentPasswordValid) {
       return res.status(400).json({

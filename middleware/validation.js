@@ -194,15 +194,22 @@ const validateProfileUpdate = [
 // Change password validation
 const validateChangePassword = [
   body('currentPassword')
-    .notEmpty()
-    .withMessage('Current password is required'),
+    .optional()
+    .custom((value, { req }) => {
+      // If currentPassword is provided, it should not be empty
+      if (value !== undefined && value === '') {
+        throw new Error('Current password cannot be empty if provided');
+      }
+      return true;
+    }),
   body('newPassword')
     .isLength({ min: 6 })
     .withMessage('New password must be at least 6 characters long')
     .matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/)
     .withMessage('New password must contain at least one uppercase letter, one lowercase letter, and one number')
     .custom((value, { req }) => {
-      if (value === req.body.currentPassword) {
+      // Only check if current password is different if current password is provided
+      if (req.body.currentPassword && value === req.body.currentPassword) {
         throw new Error('New password must be different from current password');
       }
       return true;
