@@ -12,16 +12,36 @@ const userSchema = new mongoose.Schema({
   },
   password: {
     type: String,
-    required: true,
+    required: function() { 
+      // Password is required unless user signed up with Google
+      return !this.googleId; 
+    },
     minlength: 6
+  },
+  // OAuth fields
+  googleId: {
+    type: String,
+    unique: true,
+    sparse: true // Allows multiple null values
+  },
+  authProvider: {
+    type: String,
+    enum: ['local', 'google', 'mixed'], // mixed = user has both password and OAuth
+    default: 'local'
   },
   phone: {
     type: String,
-    required: true
+    required: function() {
+      // Phone might not be available from Google OAuth
+      return this.authProvider === 'local';
+    }
   },
   postalCode: {
     type: String,
-    required: true
+    required: function() {
+      // Postal code might not be available from Google OAuth
+      return this.authProvider === 'local';
+    }
   },
   userType: {
     type: String,
@@ -44,15 +64,24 @@ const userSchema = new mongoose.Schema({
   // Donor-specific fields
   firstName: {
     type: String,
-    required: function() { return this.userType === 'donor'; }
+    required: function() { 
+      // firstName is required for donors, but Google OAuth users might not have it initially
+      return this.userType === 'donor' && this.authProvider === 'local'; 
+    }
   },
   lastName: {
     type: String,
-    required: function() { return this.userType === 'donor'; }
+    required: function() { 
+      // lastName is required for donors, but Google OAuth users might not have it initially
+      return this.userType === 'donor' && this.authProvider === 'local'; 
+    }
   },
   dateOfBirth: {
     type: Date,
-    required: function() { return this.userType === 'donor'; }
+    required: function() { 
+      // dateOfBirth is required for donors, but not for Google OAuth users initially
+      return this.userType === 'donor' && this.authProvider === 'local'; 
+    }
   },
   donorNumber: {
     type: String,

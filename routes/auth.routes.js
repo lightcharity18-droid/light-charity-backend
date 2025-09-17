@@ -12,7 +12,8 @@ const {
   forgotPassword,
   resetPassword,
   logout,
-  deactivateAccount
+  deactivateAccount,
+  googleAuth
 } = require('../controllers/auth.controller');
 
 // Import middleware
@@ -38,6 +39,11 @@ router.post('/signup', validateSignup, signup);
 // @desc    Login user
 // @access  Public
 router.post('/login', validateLogin, login);
+
+// @route   POST /api/auth/google
+// @desc    Google OAuth authentication
+// @access  Public
+router.post('/google', googleAuth);
 
 // @route   POST /api/auth/refresh-token
 // @desc    Refresh access token using refresh token

@@ -66,18 +66,30 @@ mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/light-cha
     dbLogger.error(err);
 });
 
-// Routes
+// Routes - with debug logging
+console.log('Loading routes...');
 const blogRoutes = require('./routes/blog.routes');
+console.log('blogRoutes loaded:', typeof blogRoutes);
 const newsRoutes = require('./routes/news.routes');
+console.log('newsRoutes loaded:', typeof newsRoutes);
 const chatbotRoutes = require('./routes/chatbot.routes');
+console.log('chatbotRoutes loaded:', typeof chatbotRoutes);
 const authRoutes = require('./routes/auth.routes');
+console.log('authRoutes loaded:', typeof authRoutes);
 const volunteerRoutes = require('./routes/volunteer.routes');
+console.log('volunteerRoutes loaded:', typeof volunteerRoutes);
 const messageRoutes = require('./routes/message.routes');
+console.log('messageRoutes loaded:', typeof messageRoutes);
 const donationRoutes = require('./routes/donation.routes');
+console.log('donationRoutes loaded:', typeof donationRoutes);
 const donationCenterRoutes = require('./routes/donationCenter.routes');
+console.log('donationCenterRoutes loaded:', typeof donationCenterRoutes);
 const communityRoutes = require('./routes/community.routes');
+console.log('communityRoutes loaded:', typeof communityRoutes);
 const organDonationRoutes = require('./routes/organDonation.routes');
+console.log('organDonationRoutes loaded:', typeof organDonationRoutes);
 const adminRoutes = require('./routes/admin.routes');
+console.log('adminRoutes loaded:', typeof adminRoutes);
 
 app.use('/api/blogs', blogRoutes);
 app.use('/api/news', newsRoutes);

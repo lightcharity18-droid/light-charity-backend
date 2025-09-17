@@ -3,6 +3,7 @@ const { generateToken, generateRefreshToken } = require('../middleware/auth');
 const { validationResult } = require('express-validator');
 const crypto = require('crypto');
 const emailService = require('../services/email.service');
+const { OAuth2Client } = require('google-auth-library');
 
 // Register a new user (both donor and hospital)
 const signup = async (req, res) => {
@@ -496,6 +497,138 @@ const deactivateAccount = async (req, res) => {
   }
 };
 
+// Google OAuth client
+const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
+
+// Verify Google token
+const verifyGoogleToken = async (token) => {
+  try {
+    const ticket = await googleClient.verifyIdToken({
+      idToken: token,
+      audience: process.env.GOOGLE_CLIENT_ID,
+    });
+    return ticket.getPayload();
+  } catch (error) {
+    throw new Error('Invalid Google token');
+  }
+};
+
+// Google OAuth authentication
+const googleAuth = async (req, res) => {
+  try {
+    const { googleToken, userType, additionalData } = req.body;
+
+    if (!googleToken) {
+      return res.status(400).json({
+        success: false,
+        message: 'Google token is required'
+      });
+    }
+
+    if (!userType || !['donor', 'hospital'].includes(userType)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Valid userType (donor or hospital) is required'
+      });
+    }
+
+    // Verify Google token
+    const googleUser = await verifyGoogleToken(googleToken);
+    
+    if (!googleUser) {
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid Google token'
+      });
+    }
+
+    // Check if user exists with this email or Google ID
+    let user = await User.findOne({ 
+      $or: [
+        { email: googleUser.email },
+        { googleId: googleUser.sub }
+      ]
+    });
+
+    if (user) {
+      // Existing user - link Google account if needed
+      if (!user.googleId) {
+        user.googleId = googleUser.sub;
+        user.authProvider = user.authProvider === 'local' ? 'mixed' : 'google';
+        await user.save();
+      }
+      
+      // Update last login
+      await user.updateLastLogin();
+    } else {
+      // Create new user with Google OAuth
+      let userData = {
+        email: googleUser.email,
+        googleId: googleUser.sub,
+        authProvider: 'google',
+        userType,
+        isEmailVerified: true, // Google emails are pre-verified
+      };
+
+      // Add type-specific fields
+      if (userType === 'donor') {
+        userData = {
+          ...userData,
+          firstName: googleUser.given_name || '',
+          lastName: googleUser.family_name || '',
+          // Additional data from frontend form if provided
+          ...(additionalData || {})
+        };
+      } else if (userType === 'hospital') {
+        userData = {
+          ...userData,
+          name: googleUser.name || '',
+          // Additional data from frontend form if provided
+          ...(additionalData || {})
+        };
+      }
+
+      user = await User.create(userData);
+    }
+
+    // Generate tokens
+    const token = generateToken(user._id);
+    const refreshToken = generateRefreshToken(user._id);
+
+    // Check if user profile is complete
+    const isProfileIncomplete = user.userType === 'donor' 
+      ? !user.phone || !user.postalCode || !user.dateOfBirth
+      : !user.phone || !user.postalCode || !user.address;
+
+    res.status(200).json({
+      success: true,
+      message: 'Google authentication successful',
+      data: {
+        user: user.toJSON(),
+        token,
+        refreshToken,
+        isNewUser: !user.lastLogin, // True if this is the first time logging in
+        requiresCompletion: isProfileIncomplete // Flag if user needs to complete profile
+      }
+    });
+
+  } catch (error) {
+    console.error('Google auth error:', error);
+    
+    if (error.message === 'Invalid Google token') {
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid Google token'
+      });
+    }
+
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error during Google authentication'
+    });
+  }
+};
+
 module.exports = {
   signup,
   login,
@@ -506,5 +639,6 @@ module.exports = {
   forgotPassword,
   resetPassword,
   logout,
-  deactivateAccount
+  deactivateAccount,
+  googleAuth
 }; 
