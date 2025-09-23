@@ -1,14 +1,14 @@
 const { createClient } = require('redis');
 
 class RedisService {
-  static KEYS = {
-    BLOG_POSTS: 'blog:posts',
-    NEWS_ITEMS: 'news:items',
-    BLOG_POST: (id) => `blog:post:${id}`,
-    NEWS_ITEM: (id) => `news:item:${id}`,
-  };
-
   constructor() {
+    this.KEYS = {
+      BLOG_POSTS: 'blog:posts',
+      NEWS_ITEMS: 'news:items',
+      BLOG_POST: (id) => `blog:post:${id}`,
+      NEWS_ITEM: (id) => `news:item:${id}`,
+    };
+    
     this.client = createClient({
       url: process.env.REDIS_URL || 'redis://localhost:6379'
     });

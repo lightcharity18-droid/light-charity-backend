@@ -7,7 +7,7 @@ exports.getAllNews = async (req, res) => {
         const { category, status } = req.query;
         
         // Try to get from cache first
-        const cachedNews = await redisService.get(redisService.constructor.KEYS.NEWS_ITEMS);
+        const cachedNews = await redisService.get(redisService.KEYS.NEWS_ITEMS);
         if (cachedNews && !category && !status) {
             return res.json(cachedNews);
         }
@@ -21,7 +21,7 @@ exports.getAllNews = async (req, res) => {
         
         // Update cache if no filters
         if (!category && !status) {
-            await redisService.set(redisService.constructor.KEYS.NEWS_ITEMS, news);
+            await redisService.set(redisService.KEYS.NEWS_ITEMS, news);
         }
         
         res.json(news);
@@ -34,7 +34,7 @@ exports.getAllNews = async (req, res) => {
 exports.getNewsById = async (req, res) => {
     try {
         // Try to get from cache first
-        const cachedNews = await redisService.get(redisService.constructor.KEYS.NEWS_ITEM(req.params.id));
+        const cachedNews = await redisService.get(redisService.KEYS.NEWS_ITEM(req.params.id));
         if (cachedNews) {
             return res.json(cachedNews);
         }
@@ -45,7 +45,7 @@ exports.getNewsById = async (req, res) => {
         }
 
         // Cache the news item
-        await redisService.set(redisService.constructor.KEYS.NEWS_ITEM(req.params.id), news);
+        await redisService.set(redisService.KEYS.NEWS_ITEM(req.params.id), news);
         
         res.json(news);
     } catch (error) {
@@ -61,7 +61,7 @@ exports.createNews = async (req, res) => {
         
         // Update Redis cache
         const allNews = await News.find({ status: 'published' }).sort({ createdAt: -1 });
-        await redisService.set(redisService.constructor.KEYS.NEWS_ITEMS, allNews);
+        await redisService.set(redisService.KEYS.NEWS_ITEMS, allNews);
         
         res.status(201).json(savedNews);
     } catch (error) {
@@ -83,8 +83,8 @@ exports.updateNews = async (req, res) => {
 
         // Update Redis cache
         const allNews = await News.find({ status: 'published' }).sort({ createdAt: -1 });
-        await redisService.set(redisService.constructor.KEYS.NEWS_ITEMS, allNews);
-        await redisService.set(redisService.constructor.KEYS.NEWS_ITEM(req.params.id), news);
+        await redisService.set(redisService.KEYS.NEWS_ITEMS, allNews);
+        await redisService.set(redisService.KEYS.NEWS_ITEM(req.params.id), news);
         
         res.json(news);
     } catch (error) {
@@ -102,8 +102,8 @@ exports.deleteNews = async (req, res) => {
 
         // Update Redis cache
         const allNews = await News.find({ status: 'published' }).sort({ createdAt: -1 });
-        await redisService.set(redisService.constructor.KEYS.NEWS_ITEMS, allNews);
-        await redisService.delete(redisService.constructor.KEYS.NEWS_ITEM(req.params.id));
+        await redisService.set(redisService.KEYS.NEWS_ITEMS, allNews);
+        await redisService.delete(redisService.KEYS.NEWS_ITEM(req.params.id));
         
         res.json({ message: 'News item deleted successfully' });
     } catch (error) {
