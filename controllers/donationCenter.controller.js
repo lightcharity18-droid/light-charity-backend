@@ -125,6 +125,13 @@ exports.getPlaceDetails = async (req, res) => {
       });
     }
 
+    if (!place_id) {
+      return res.status(400).json({
+        success: false,
+        message: 'Place ID is required'
+      });
+    }
+
     // Use Places API (New) for place details
     const url = `https://places.googleapis.com/v1/places/${place_id}`;
     const response = await axios.get(url, {
@@ -164,6 +171,17 @@ exports.getPlaceDetails = async (req, res) => {
     });
   } catch (error) {
     console.error('Error getting place details:', error);
+    
+    // Check if it's a 400 error (likely invalid place ID or API issue)
+    if (error.response?.status === 400) {
+      console.warn(`Invalid place ID or API error for place: ${req.query.place_id}`);
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid place ID or API error',
+        error: error.response?.data?.error?.message || error.message
+      });
+    }
+    
     res.status(500).json({
       success: false,
       message: 'Error getting place details',
