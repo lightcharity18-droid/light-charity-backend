@@ -23,8 +23,21 @@ exports.searchPlaces = async (req, res) => {
         textQuery: query,
         maxResultCount: 20,
         languageCode: 'en'
-        // Removed regionCode to support global locations including India
       };
+
+      // Add location bias if location is provided
+      if (location && req.query.locationBias === 'true') {
+        const [lat, lng] = location.split(',').map(parseFloat);
+        requestBody.locationBias = {
+          circle: {
+            center: {
+              latitude: lat,
+              longitude: lng
+            },
+            radius: parseFloat(radius) * 1000 || 50000 // Convert km to meters, default 50km
+          }
+        };
+      }
 
       response = await axios.post(url, requestBody, {
         headers: {
@@ -35,21 +48,29 @@ exports.searchPlaces = async (req, res) => {
       });
 
       // Transform response to match legacy format
-      const transformedResults = response.data.places?.map(place => ({
-        place_id: place.id,
-        name: place.displayName?.text || '',
-        formatted_address: place.formattedAddress,
-        geometry: {
-          location: {
-            lat: place.location?.latitude || 0,
-            lng: place.location?.longitude || 0
-          }
-        },
-        types: place.types || [],
-        rating: place.rating || 0,
-        user_ratings_total: place.userRatingCount || 0,
-        business_status: place.businessStatus || 'OPERATIONAL'
-      })) || [];
+      const transformedResults = response.data.places?.map(place => {
+        // Extract place ID - new API returns "places/ChIJxyz", we need just "ChIJxyz"
+        let placeId = place.id;
+        if (placeId && placeId.startsWith('places/')) {
+          placeId = placeId.substring(7); // Remove "places/" prefix
+        }
+
+        return {
+          place_id: placeId,
+          name: place.displayName?.text || '',
+          formatted_address: place.formattedAddress,
+          geometry: {
+            location: {
+              lat: place.location?.latitude || 0,
+              lng: place.location?.longitude || 0
+            }
+          },
+          types: place.types || [],
+          rating: place.rating || 0,
+          user_ratings_total: place.userRatingCount || 0,
+          business_status: place.businessStatus || 'OPERATIONAL'
+        };
+      }) || [];
 
       res.json({
         results: transformedResults,
@@ -58,6 +79,8 @@ exports.searchPlaces = async (req, res) => {
     } else {
       // Nearby search using Places API (New)
       const url = 'https://places.googleapis.com/v1/places:searchNearby';
+
+      // Build request body for nearby search
       const requestBody = {
         locationRestriction: {
           circle: {
@@ -65,13 +88,32 @@ exports.searchPlaces = async (req, res) => {
               latitude: parseFloat(location.split(',')[0]),
               longitude: parseFloat(location.split(',')[1])
             },
-            radius: parseFloat(radius)
+            radius: parseFloat(radius) // Already in meters from frontend
           }
         },
-        includedTypes: [type || 'hospital'],
         maxResultCount: 20,
         languageCode: 'en'
       };
+
+      // Add includedTypes if a valid type is provided
+      // Note: The new API has specific type requirements, stick to known types
+      // Note: searchNearby does NOT support keyword/text filtering (unlike the old API)
+      if (type && type !== 'undefined') {
+        // Map common types to valid Place Types for the new API
+        const validTypes = {
+          'hospital': 'hospital',
+          'health': 'hospital', // Map health to hospital
+          'pharmacy': 'pharmacy',
+          'doctor': 'doctor'
+        };
+        const mappedType = validTypes[type] || 'hospital';
+        requestBody.includedTypes = [mappedType];
+      } else {
+        // If no type specified, default to hospital
+        requestBody.includedTypes = ['hospital'];
+      }
+
+      console.log('Nearby search request:', JSON.stringify(requestBody, null, 2));
 
       response = await axios.post(url, requestBody, {
         headers: {
@@ -82,21 +124,29 @@ exports.searchPlaces = async (req, res) => {
       });
 
       // Transform response to match legacy format
-      const transformedResults = response.data.places?.map(place => ({
-        place_id: place.id,
-        name: place.displayName?.text || '',
-        formatted_address: place.formattedAddress,
-        geometry: {
-          location: {
-            lat: place.location?.latitude || 0,
-            lng: place.location?.longitude || 0
-          }
-        },
-        types: place.types || [],
-        rating: place.rating || 0,
-        user_ratings_total: place.userRatingCount || 0,
-        business_status: place.businessStatus || 'OPERATIONAL'
-      })) || [];
+      const transformedResults = response.data.places?.map(place => {
+        // Extract place ID - new API returns "places/ChIJxyz", we need just "ChIJxyz"
+        let placeId = place.id;
+        if (placeId && placeId.startsWith('places/')) {
+          placeId = placeId.substring(7); // Remove "places/" prefix
+        }
+
+        return {
+          place_id: placeId,
+          name: place.displayName?.text || '',
+          formatted_address: place.formattedAddress,
+          geometry: {
+            location: {
+              lat: place.location?.latitude || 0,
+              lng: place.location?.longitude || 0
+            }
+          },
+          types: place.types || [],
+          rating: place.rating || 0,
+          user_ratings_total: place.userRatingCount || 0,
+          business_status: place.businessStatus || 'OPERATIONAL'
+        };
+      }) || [];
 
       res.json({
         results: transformedResults,
@@ -104,11 +154,17 @@ exports.searchPlaces = async (req, res) => {
       });
     }
   } catch (error) {
-    console.error('Error searching places:', error);
-    res.status(500).json({
+    console.error('Error searching places:', error.response?.data || error.message);
+
+    // Return more specific error information
+    const statusCode = error.response?.status || 500;
+    const errorMessage = error.response?.data?.error?.message || error.message;
+
+    res.status(statusCode).json({
       success: false,
       message: 'Error searching places',
-      error: error.message
+      error: errorMessage,
+      details: error.response?.data
     });
   }
 };
@@ -133,21 +189,37 @@ exports.getPlaceDetails = async (req, res) => {
     }
 
     // Use Places API (New) for place details
-    const url = `https://places.googleapis.com/v1/places/${place_id}`;
+    // Remove "places/" prefix if present - API expects just the place ID
+    let cleanPlaceId = place_id;
+    if (place_id.startsWith('places/')) {
+      cleanPlaceId = place_id.substring(7);
+    }
+
+    const url = `https://places.googleapis.com/v1/places/${cleanPlaceId}`;
+
+    console.log(`Fetching place details for: ${place_id} -> ${url}`);
+
     const response = await axios.get(url, {
       headers: {
         'X-Goog-Api-Key': apiKey,
-        'X-Goog-FieldMask': 'id,displayName,formattedAddress,location.latitude,location.longitude,types,rating,userRatingCount,businessStatus,formattedPhoneNumber,websiteUri,regularOpeningHours'
+        'X-Goog-FieldMask': 'id,displayName,formattedAddress,location,types,rating,userRatingCount,businessStatus,internationalPhoneNumber,websiteUri,regularOpeningHours'
       }
     });
 
     // Transform response to match legacy format
     const place = response.data;
+
+    // Extract clean place ID
+    let returnPlaceId = place.id;
+    if (returnPlaceId && returnPlaceId.startsWith('places/')) {
+      returnPlaceId = returnPlaceId.substring(7);
+    }
+
     const transformedResult = {
-      place_id: place.id,
+      place_id: returnPlaceId,
       name: place.displayName?.text || '',
       formatted_address: place.formattedAddress,
-      formatted_phone_number: place.formattedPhoneNumber,
+      formatted_phone_number: place.internationalPhoneNumber || place.formattedPhoneNumber,
       website: place.websiteUri,
       geometry: {
         location: {
@@ -170,22 +242,29 @@ exports.getPlaceDetails = async (req, res) => {
       status: 'OK'
     });
   } catch (error) {
-    console.error('Error getting place details:', error);
-    
+    console.error('Error getting place details:', {
+      placeId: req.query.place_id,
+      status: error.response?.status,
+      error: error.response?.data || error.message
+    });
+
     // Check if it's a 400 error (likely invalid place ID or API issue)
     if (error.response?.status === 400) {
       console.warn(`Invalid place ID or API error for place: ${req.query.place_id}`);
       return res.status(400).json({
         success: false,
         message: 'Invalid place ID or API error',
-        error: error.response?.data?.error?.message || error.message
+        error: error.response?.data?.error?.message || error.message,
+        details: error.response?.data
       });
     }
-    
-    res.status(500).json({
+
+    const statusCode = error.response?.status || 500;
+    res.status(statusCode).json({
       success: false,
       message: 'Error getting place details',
-      error: error.message
+      error: error.response?.data?.error?.message || error.message,
+      details: error.response?.data
     });
   }
 };
