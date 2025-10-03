@@ -28,13 +28,23 @@ exports.searchPlaces = async (req, res) => {
       // Add location bias if location is provided
       if (location && req.query.locationBias === 'true') {
         const [lat, lng] = location.split(',').map(parseFloat);
+
+        // Google Places API has a maximum radius of 50,000 meters (50km) for locationBias
+        const requestedRadius = parseFloat(radius) || 50000;
+        const maxGooglePlacesRadius = 50000;
+        const apiRadius = Math.min(requestedRadius, maxGooglePlacesRadius);
+
+        if (requestedRadius > maxGooglePlacesRadius) {
+          console.log(`⚠️ Text search: Requested radius ${(requestedRadius/1000).toFixed(0)}km exceeds limit. Using ${(apiRadius/1000).toFixed(0)}km for API.`);
+        }
+
         requestBody.locationBias = {
           circle: {
             center: {
               latitude: lat,
               longitude: lng
             },
-            radius: parseFloat(radius) * 1000 || 50000 // Convert km to meters, default 50km
+            radius: apiRadius // Capped at Google Places API maximum
           }
         };
       }
@@ -81,6 +91,15 @@ exports.searchPlaces = async (req, res) => {
       const url = 'https://places.googleapis.com/v1/places:searchNearby';
 
       // Build request body for nearby search
+      // Google Places API has a maximum radius of 50,000 meters (50km)
+      const requestedRadius = parseFloat(radius);
+      const maxGooglePlacesRadius = 50000; // 50km maximum for Google Places API
+      const apiRadius = Math.min(requestedRadius, maxGooglePlacesRadius);
+
+      if (requestedRadius > maxGooglePlacesRadius) {
+        console.log(`⚠️ Requested radius ${(requestedRadius/1000).toFixed(0)}km exceeds Google Places limit. Using ${(apiRadius/1000).toFixed(0)}km for API, will filter client-side.`);
+      }
+
       const requestBody = {
         locationRestriction: {
           circle: {
@@ -88,7 +107,7 @@ exports.searchPlaces = async (req, res) => {
               latitude: parseFloat(location.split(',')[0]),
               longitude: parseFloat(location.split(',')[1])
             },
-            radius: parseFloat(radius) // Already in meters from frontend
+            radius: apiRadius // Capped at Google Places API maximum
           }
         },
         maxResultCount: 20,
@@ -361,42 +380,42 @@ exports.autocompletePlaces = async (req, res) => {
 // Get all donation centers
 exports.getAllCenters = async (req, res) => {
   try {
-    const { 
-      bloodType, 
-      city, 
-      state, 
-      latitude, 
-      longitude, 
-      radius = 50, // km
+    const {
+      bloodType,
+      city,
+      state,
+      latitude,
+      longitude,
+      radius = 50000, // meters (default 50km)
       limit = 50,
-      page = 1 
+      page = 1
     } = req.query;
 
     let query = { status: 'active' };
-    
+
     // Filter by blood type if provided
     if (bloodType) {
       query.bloodTypesAccepted = bloodType;
     }
-    
+
     // Filter by city if provided
     if (city) {
       query['address.city'] = new RegExp(city, 'i');
     }
-    
+
     // Filter by state if provided
     if (state) {
       query['address.state'] = new RegExp(state, 'i');
     }
 
     let centers;
-    
+
     // If coordinates provided, find nearby centers
     if (latitude && longitude) {
-      const maxDistance = radius * 1000; // Convert km to meters
+      const maxDistance = parseFloat(radius); // Already in meters from frontend
       centers = await DonationCenter.findNearby(
-        parseFloat(longitude), 
-        parseFloat(latitude), 
+        parseFloat(longitude),
+        parseFloat(latitude),
         maxDistance
       );
       
